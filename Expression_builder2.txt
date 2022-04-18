@@ -1,0 +1,40 @@
+------------------------------------------------------------------------------------------------------------
+------------------  Setting Dynamic Content inside ADF (inside of the COPY Source -------------------------
+                    or other scenarios ) -------------------------------------------------------------------  
+-------------------------------------------------------------------------------------------------------------
+--- Until ----
+@or(equals(activity('web2-exec-genome-mlops-job').output.state.life_cycle_state, 'TERMINATED'), equals(activity('web2-exec-genome-mlops-job').output.state.life_cycle_state, 'INTERNAL_ERROR'))
+
+
+
+-- WebJob ---
+Auth--
+@concat('Bearer ',activity('web-get-akv-for-databricks-token').output.value)
+
+Url--
+@activity('lkp-ccmlops-control-table-for-job-id').output.firstRow.parameter_1
+
+>>
+url:
+https://eastus.azuredatabricks.net/api/2.0/jobs/runs/get?run_id=@{activity('web-exec-genome-mlops-job').output.run_id}
+
+
+
+
+@concat('SELECT MAX(t2.maxDate) as maxDate
+FROM (SELECT (SELECT MAX(V) FROM (VALUES (CreateDate), (ModifyDate)) AS VALUE(V)) as maxDate
+FROM ',item().tableName,')t2')
+-----------
+@activity('LookupNewWaterMarkActivity').output.firstRow.newWatermarkValue
+
+-------------
+@concat(
+    'SELECT ',item().columnList,' FROM ',
+     item().tableName, ' WHERE CreateDate >''',
+     item().watermarkDate,''' AND CreateDate <=''', activity('LookupNewWaterMarkActivity').output.firstRow.newWatermarkValue,'''')
+
+--------------------
+
+@concat(replace(item().name,'.txt',''),'_',formatDateTime(convertTimeZone(utcnow(),'UTC','Eastern Standard Time'),'yyyy-MM-ddTHH:mm:ss'), '.txt')
+
+---------------------
